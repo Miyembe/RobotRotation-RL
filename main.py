@@ -4,11 +4,10 @@ import matplotlib.pyplot as plt
 import math
 import tensorflow as tf
 
-def positionGeneration():
-    d = 50 # diameter of the robot
+def positionGeneration(d): # d =  diameter of the robot
     # Randomly generating theta (the angle between local reference frame of the robot and the global frame) 
     # and the left, right sensor positions
-    theta = np.random.randint(0,360)
+    theta = np.random.randint(0,360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
     x_l = np.random.randint(1+d,1000-d)
     y_l = np.random.randint(1+d,1000-d)
     x_r = int(x_l + math.cos(90-theta) * d)
@@ -62,7 +61,7 @@ def rewardDone(state):
     return(reward, done)
 
 # Setting the neural network 
-learning_rate = 1e-1       
+learning_rate = 0.2       
 input_size = 2
 output_size = 1
 
@@ -79,9 +78,9 @@ loss = tf.reduce_sum(tf.square(Y-Qpred))
 train = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(loss)
 
 # Hyperparameters
-num_episodes = 2000
-dis = 0.99
-rList = []
+num_episodes = 3000
+dis = 0.9
+rList = [] # empty array which will contain (number of rotation / angle needs to rotate ) - the lower the value is , the better it finds the right angle
 
 # Q-learning
 init_op = tf.global_variables_initializer()
@@ -89,14 +88,19 @@ init_op = tf.global_variables_initializer()
 sess = tf.Session()
 sess.run(init_op)
 
+# About robot
+
+d = 50
+
 for i in range( num_episodes):
     e = 1./((i+1)/10) # e-greedy value
     rAll = 0
     done = False
     step_count = 0
-    position = positionGeneration()
+    position = positionGeneration(d)
     state = zvalue(position)
-    initial_z_diff = abs(state[0] - state[1])
+    #initial_z_diff = abs(state[0] - state[1])
+    initial_angle_diff = math.acos((position[2]-position[3])/d) * 360/(math.pi)
 
     while not done:
         step_count += 1
@@ -118,33 +122,23 @@ for i in range( num_episodes):
         Qs1 = sess.run(Qpred, feed_dict={X: x1})
         Qs[0, action] = reward + dis * np.max(Qs1)
 
+        rAll += reward
         sess.run(train, feed_dict = {X: x, Y: Qs})
         position = new_position
         state = new_state
 
-    rList.append(step_count)
-    print("Episodes: {}, steps: {}, initial difference between two wheels: {}".format(i, step_count, initial_z_diff))
+    if (initial_angle_diff > 1 and initial_angle_diff < 359):
+        if (initial_angle_diff < 180):  
+            rList.append(step_count/initial_angle_diff)
+        else:
+            rList.append(step_count/( 360 - initial_angle_diff))
+    else:
+        rList.append(0)
+    
 
-    if len(rList) > 10 and np.mean(rList[-10:]) > 500:
-        break
-
-
-# Actual Play!
-position = positionGeneration()
-observation = zvalue(position)
-reward_sum = 0
-while True:
-    x = np.reshape(observation, [1, input_size])
-    Qs = sess.run(Qpred, feed_dict={X: x})
-    a = np.argmax(Qs)
-
-    new_position = step(position, action)
-    new_state = zvalue(new_position)
-    reward, done = rewardDone(new_state)
-    reward_sum += reward
-    if done:
-         print("Total score: {}".format(reward_sum))
-         break
+    print("Episodes: {}, steps: {}, initial angle difference: {}".format(i, step_count, initial_angle_diff))
 
 
 
+plt.bar(range(len(rList)), rList, color="blue")
+plt.show()
