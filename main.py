@@ -52,10 +52,11 @@ def step(position, action):
 
 def rewardDone(state):
     if (abs(state[0] - state[1]) < 5):
-        reward = 1
+        reward = 50
         done = True
     else:
-        reward = 0
+        # Giving negative reward when it is not done
+        reward = -1
         done = False
     
     return(reward, done)
@@ -120,7 +121,7 @@ for i in range( num_episodes):
         # Updating Q-network
         x1 = np.reshape(new_state, [1, input_size])
         Qs1 = sess.run(Qpred, feed_dict={X: x1})
-        Qs[0, action] = reward + dis * np.max(Qs1)
+        Qs[0, action] = reward + dis * np.max(Qs1) # check
 
         rAll += reward
         sess.run(train, feed_dict = {X: x, Y: Qs})
