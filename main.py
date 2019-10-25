@@ -4,6 +4,12 @@ import matplotlib.pyplot as plt
 import math
 import tensorflow as tf
 
+# Creating z-matrix - shape(1000,1000) and filled from 1 (row[0]) to 1000 (row[999])
+x = np.arange(1,1000,1)
+y = np.arange(1,1000,1)
+xx, yy = np.meshgrid(x,y, sparse = True)
+z = np.tile(yy, (1, 999))
+
 def positionGeneration(d): # d =  diameter of the robot
     # Randomly generating theta (the angle between local reference frame of the robot and the global frame) 
     # and the left, right sensor positions
@@ -15,12 +21,8 @@ def positionGeneration(d): # d =  diameter of the robot
     
     return (np.array([x_l,x_r,y_l,y_r]))
     
-def zvalue(position):
-    # Creating z-matrix - shape(1000,1000) and filled from 1 (row[0]) to 1000 (row[999])
-    x = np.arange(1,1000,1)
-    y = np.arange(1,1000,1)
-    xx, yy = np.meshgrid(x,y, sparse = True)
-    z = np.tile(yy, (1, 999))
+def zvalue(position, z):
+    
     # Finding the corresponding z value (light intensity) to the given position values
     z_l = z[int(position[0]), int(position[2])]
     z_r = z[int(position[1]), int(position[3])]
@@ -30,9 +32,9 @@ def zvalue(position):
 def step(position, action):
     # taking action from the current state (current position)
     if action == 0:
-        turn = 1
+        turn = math.pi / 180
     else:
-        turn = -1
+        turn = -(math.pi / 180)
     # Generating Rotation matrix using the given turn value
     c, s = np.cos(turn), np.sin(turn)
     R = np.array(((c, -s), (s, c)))
@@ -64,7 +66,7 @@ def rewardDone(state):
 # Setting the neural network 
 learning_rate = 0.2       
 input_size = 2
-output_size = 1
+output_size = 2
 
 action_space = np.array([0, 1])
 
@@ -99,9 +101,12 @@ for i in range( num_episodes):
     done = False
     step_count = 0
     position = positionGeneration(d)
-    state = zvalue(position)
+    state = zvalue(position, z)
     #initial_z_diff = abs(state[0] - state[1])
-    initial_angle_diff = math.acos((position[2]-position[3])/d) * 360/(math.pi)
+    if position[2] > position[3]:
+        initial_angle_diff = math.acos((position[2]-position[3])/d) * 180/(math.pi)
+    else:
+        initial_angle_diff = 360 - (math.acos((position[2]-position[3])/d) * 180/(math.pi))
 
     while not done:
         step_count += 1
@@ -115,7 +120,7 @@ for i in range( num_episodes):
 
         # Result from the action
         new_position = step(position, action)
-        new_state = zvalue(new_position)
+        new_state = zvalue(new_position, z)
         reward, done = rewardDone(new_state)
 
         # Updating Q-network
