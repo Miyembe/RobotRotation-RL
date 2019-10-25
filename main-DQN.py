@@ -25,12 +25,12 @@ def positionGeneration(d): # d =  diameter of the robot
     # Randomly generating theta (the angle between local reference frame of the robot and the global frame) 
     # and the left, right sensor positions
     theta = np.random.randint(0,360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
-    x_l = np.random.randint(1+d,1000-d)
-    y_l = np.random.randint(1+d,1000-d)
+    x_l = 500
+    y_l = 500
     x_r = int(x_l + math.cos(90-theta) * d)
     y_r = int(y_l - math.sin(90-theta) * d)
     
-    return (np.array([x_l,x_r,y_l,y_r]))
+    return (np.array([x_l,x_r,y_l,y_r]), theta)
     
 def zvalue(position, z):
     # Creating z-matrix - shape(1000,1000) and filled from 1 (row[0]) to 1000 (row[999])
@@ -64,8 +64,8 @@ def step(position, action):
     return(next_position)
 
 
-def rewardDone(state):
-    if (abs(state[0] - state[1]) < 5):
+def rewardDone(state, position):
+    if (abs(state[0] - state[1]) < 5 and position[2] > position[3]):
         reward = 100
         done = True
     else:
@@ -147,13 +147,8 @@ def main():
             e = 1. / ((episode / 10) + 1)
             done = False
             step_count = 0
-            position = positionGeneration(d)
+            position, initial_angle_diff = positionGeneration(d)
             state = zvalue(position, z)
-            if position[2] > position[3]:
-                initial_angle_diff = math.acos((position[2]-position[3])/d) * 180/(math.pi)
-            else:
-                initial_angle_diff = 360 - (math.acos((position[2]-position[3])/d) * 180/(math.pi))
-
             while not done:
                 if np.random.rand(1) < e:
                     action = np.random.choice(action_space)
@@ -165,7 +160,7 @@ def main():
 
                 next_position = step(position, action)
                 next_state = zvalue(next_position, z)
-                reward, done = rewardDone(next_state)
+                reward, done = rewardDone(next_state, next_position)
                 
                 replay_buffer.append((state, action, reward, next_state, done))
                 if len(replay_buffer) == REPLAY_MEMORY:
