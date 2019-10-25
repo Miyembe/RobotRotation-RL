@@ -12,7 +12,7 @@ output_size = 2
 
 
 REPLAY_MEMORY = 50000
-d = 50
+d = 80
 action_space = np.array([0, 1])
 
 x = np.arange(1,1000,1)
@@ -44,12 +44,12 @@ def zvalue(position, z):
 def step(position, action):
     # taking action from the current state (current position)
     if action == 0:
-        turn = math.pi / 180
+        turn = 5 * math.pi / 180
     else:
-        turn = - (math.pi) / 180
+        turn = - 5 * (math.pi) / 180
     # Generating Rotation matrix using the given turn value
     c, s = np.cos(turn), np.sin(turn)
-    R = np.array(((c, -s), (s, c)))
+    R = np.array(((c, s), (-s, c)))
     x_l, x_r, y_l, y_r = position[0], position[1], position[2], position[3]
     x_c = (x_l + x_r)/2
     y_c = (y_l + y_r)/2
@@ -65,8 +65,8 @@ def step(position, action):
 
 
 def rewardDone(state, position):
-    if (abs(state[0] - state[1]) < 5 and position[2] > position[3]):
-        reward = 100
+    if (abs(state[0] - state[1]) < 10 and position[2] > position[3]):
+        reward = 10
         done = True
     else:
         # Giving negative reward when it is not done
@@ -168,7 +168,7 @@ def main():
 
                 state = next_state
                 step_count += 1
-                if step_count > 1000:
+                if step_count > 30000:
                     break
             if (initial_angle_diff > 1 and initial_angle_diff < 359):
                 if (initial_angle_diff < 180):  
