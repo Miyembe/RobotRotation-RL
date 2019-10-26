@@ -2,19 +2,25 @@ import dqn
 import numpy as np
 import random
 import math
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from collections import deque
 
 
-# Constants defining our neural network
+# Input size and output size of the neural network
 input_size = 2
 output_size = 2
 
-
+# Memory size for experience replay 
 REPLAY_MEMORY = 50000
+
+# Diameter of robot
 d = 80
+
+# Action space - only two elements (indicate rotate clockwise or anti-clockwise)
 action_space = np.array([0, 1])
 
+# Creating the z matrix - represent the arena of 1000 x 1000 - z value is assigned in gradient of 1 - 1000 (x: 1 - 1000, z: 1 - 1000)
 x = np.arange(1,1000,1)
 y = np.arange(1,1000,1)
 xx, yy = np.meshgrid(x,y, sparse = True)
@@ -33,9 +39,7 @@ def positionGeneration(d): # d =  diameter of the robot
     return (np.array([x_l,x_r,y_l,y_r]), theta)
     
 def zvalue(position, z):
-    # Creating z-matrix - shape(1000,1000) and filled from 1 (row[0]) to 1000 (row[999])
-    
-    # Finding the corresponding z value (light intensity) to the given position values
+    # Finding the corresponding z value (light intensity) for the given position values
     z_l = z[int(position[0]), int(position[2])]
     z_r = z[int(position[1]), int(position[3])]
 
@@ -44,9 +48,9 @@ def zvalue(position, z):
 def step(position, action):
     # taking action from the current state (current position)
     if action == 0:
-        turn = 5 * math.pi / 180
+        turn = math.pi / 180
     else:
-        turn = - 5 * (math.pi) / 180
+        turn = - (math.pi) / 180
     # Generating Rotation matrix using the given turn value
     c, s = np.cos(turn), np.sin(turn)
     R = np.array(((c, s), (-s, c)))
@@ -66,10 +70,9 @@ def step(position, action):
 
 def rewardDone(state, position):
     if (abs(state[0] - state[1]) < 10 and position[2] > position[3]):
-        reward = 10
+        reward = 100
         done = True
     else:
-        # Giving negative reward when it is not done
         reward = 0
         done = False
     
@@ -161,15 +164,17 @@ def main():
                 next_position = step(position, action)
                 next_state = zvalue(next_position, z)
                 reward, done = rewardDone(next_state, next_position)
-                
+                #print("current position: {}, next position: {}".format(position, next_position))
                 replay_buffer.append((state, action, reward, next_state, done))
                 if len(replay_buffer) == REPLAY_MEMORY:
                     replay_buffer.popleft()
 
+                position = next_position
                 state = next_state
                 step_count += 1
-                if step_count > 30000:
-                    break
+                print("step: {}, action: {}, state: {} ".format(step_count, action, state))
+                #if step_count > 30000:
+                #    break
             if (initial_angle_diff > 1 and initial_angle_diff < 359):
                 if (initial_angle_diff < 180):  
                     rList.append(step_count/initial_angle_diff)
@@ -178,13 +183,20 @@ def main():
             else:
                 rList.append(0)
 
-            print("Episodes: {}, steps: {}, initial angle difference: {}".format(episode, step_count, initial_angle_diff))
+            if initial_angle_diff <= 180 :
+                print("Episodes: {}, steps: {}, initial angle difference: {}".format(episode, step_count, initial_angle_diff))
+            else:
+                print("Episodes: {}, steps: {}, initial angle difference: {}".format(episode, step_count, - (360 - initial_angle_diff)))
+            
             
             if episode % 5 == 1:
                     for _ in range(50):
                         minibatch = random.sample(replay_buffer, 5)
                         loss, _ = replay_train(mainDQN, targetDQN, minibatch, dis)
                     print("Loss: ", loss)
+    
+    plt.bar(range(len(rList)), rList, color="blue")
+    plt.show()
         
 
 if __name__ == "__main__":
