@@ -30,11 +30,11 @@ z = np.tile(yy, (1, 999))
 def positionGeneration(d): # d =  diameter of the robot
     # Randomly generating theta (the angle between local reference frame of the robot and the global frame) 
     # and the left, right sensor positions
-    theta = np.random.randint(0,360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
+    theta = 90 #np.random.randint(0, 360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
     x_l = 500
     y_l = 500
-    x_r = int(x_l + math.cos(90-theta) * d)
-    y_r = int(y_l - math.sin(90-theta) * d)
+    x_r = x_l + math.cos((math.pi/180) * (90-theta)) * d
+    y_r = y_l - math.sin((math.pi/180) * (90-theta)) * d
     
     return (np.array([x_l,x_r,y_l,y_r]), theta)
     
@@ -69,7 +69,7 @@ def step(position, action):
 
 
 def rewardDone(state, position):
-    if (abs(state[0] - state[1]) < 10 and position[2] > position[3]):
+    if (abs(state[0] - state[1]) < 5 and position[2] > position[3]):
         reward = 100
         done = True
     else:
@@ -131,9 +131,9 @@ def bot_play(mainDQN):
             print("Total score: {}".format((reward_sum)))
             break
 def main():
-    max_episodes = 3000
+    max_episodes = 500
     rList = []
-    dis = 0.8
+    dis = 0.3
     replay_buffer = deque()
 
     with tf.Session() as sess:
@@ -172,7 +172,7 @@ def main():
                 position = next_position
                 state = next_state
                 step_count += 1
-                print("step: {}, action: {}, state: {} ".format(step_count, action, state))
+                print("step: {}, action: {}, state: {}, position: {} ".format(step_count, action, state, position))
                 #if step_count > 30000:
                 #    break
             if (initial_angle_diff > 1 and initial_angle_diff < 359):
