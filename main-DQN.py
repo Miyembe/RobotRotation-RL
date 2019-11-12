@@ -30,7 +30,7 @@ z = np.tile(yy, (1, 999))
 def positionGeneration(d): # d =  diameter of the robot
     # Randomly generating theta (the angle between local reference frame of the robot and the global frame) 
     # and the left, right sensor positions
-    theta = 90 #np.random.randint(0, 360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
+    theta = np.random.randint(0, 360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
     x_l = 500
     y_l = 500
     x_r = x_l + math.cos((math.pi/180) * (90-theta)) * d
@@ -70,10 +70,10 @@ def step(position, action):
 
 def rewardDone(state, position):
     if (abs(state[0] - state[1]) < 5 and position[2] > position[3]):
-        reward = 100
+        reward = 0
         done = True
     else:
-        reward = 0
+        reward = -1
         done = False
     
     return(reward, done)
