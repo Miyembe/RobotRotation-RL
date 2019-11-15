@@ -15,7 +15,7 @@ output_size = 2
 REPLAY_MEMORY = 50000
 
 # Diameter of robot
-d = 80
+d = 80.
 
 # Action space - only two elements (indicate rotate clockwise or anti-clockwise)
 action_space = np.array([0, 1])
@@ -34,10 +34,12 @@ def positionGeneration(d): # d =  diameter of the robot
         theta = np.random.randint(0, 360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
     
     #theta = 90
-    x_l = 500
-    y_l = 500
-    x_r = x_l + math.cos((math.pi/180) * (90-theta)) * d
-    y_r = y_l - math.sin((math.pi/180) * (90-theta)) * d
+    x_c = 500.
+    y_c = 500.
+    x_l = x_c - math.cos((math.pi/180) * (90-theta)) * (d/2)
+    x_r = x_c + math.cos((math.pi/180) * (90-theta)) * (d/2)
+    y_l = y_c + math.sin((math.pi/180) * (90-theta)) * (d/2)
+    y_r = y_c - math.sin((math.pi/180) * (90-theta)) * (d/2)
     
     return (np.array([x_l,x_r,y_l,y_r]), theta)
     
@@ -65,18 +67,47 @@ def step(position, action):
     l_new = np.matmul(l_temp, R) + np.array([x_c, y_c])
     r_temp= np.array([x_r-x_c, y_r-y_c])
     r_new = np.matmul(r_temp, R) + np.array([x_c, y_c])
-    # Assinging new position value
+    # Assinging new position value // (x_l, x_r, y_l, y_r)
     next_position = np.array([l_new[0], r_new[0], l_new[1], r_new[1]])
     
     return(next_position)
 
+def angle_calculation(position):
+    x_l = position[0]
+    x_r = position[1]
+    y_l = position[2]
+    y_r = position[3]
+    #x_c = (x_l + x_r)/2
+    if (x_l <= x_r and y_l > y_r):
+        if (y_l - y_r) > d:
+            theta = (180/math.pi) * math.acos(int(y_l - y_r) / d)
+        else:
+            theta = (180/math.pi) * math.acos((y_l - y_r) / d)
+    elif (x_l < x_r and y_l <= y_r):
+        if (x_r - x_l) > d:
+            theta = (180/math.pi) * math.acos(int(x_r - x_l) / d) + 90
+        else:
+            theta = (180/math.pi) * math.acos((x_r - x_l) / d) + 90
+    elif (x_l >= x_r and y_l < y_r):
+        if (x_l - x_r) > d:
+            theta = - (180/math.pi) * math.acos(int(x_l - x_r) / d) - 90
+        else:
+            theta = - (180/math.pi) * math.acos((x_l - x_r) / d) - 90
+    elif (x_l > x_r and y_l >= y_r):
+        if (y_l - y_r) > d:
+            theta = - (180/math.pi) * math.acos(int(y_l - y_r) / d)
+        else:
+            theta = - (180/math.pi) * math.acos((y_l - y_r) / d)
+    return theta
+    
+
 
 def rewardDone(state, position):
     if (abs(state) <= 2 and position[2] > position[3]):
-        reward = 1
+        reward = 1.
         done = True
     else:
-        reward = -1
+        reward = -1.
         done = False
     
     return(reward, done)
@@ -176,8 +207,11 @@ def main():
                     replay_buffer.popleft()
                 position = next_position
                 state = next_state
+                current_angle = angle_calculation(position)
                 step_count += 1
-                print("Episodes: {}, step: {}, action: {}, state: {}".format(episode, step_count, action, state))
+
+                print("Episodes: {}, step: {}, action: {}, state: {}, angle: {}, position: {}".format(episode, step_count, action, state, current_angle, position))
+                #print("Episodes: {}, step: {}, action: {}, state: {}, position: {}".format(episode, step_count, action, state, position))
                 if (reward >= 0):
                     last_data = replay_buffer[-2]
                     current_data = replay_buffer[-1]
