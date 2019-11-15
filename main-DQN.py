@@ -8,7 +8,7 @@ from collections import deque
 
 
 # Input size and output size of the neural network
-input_size = 2
+input_size = 1
 output_size = 2
 
 # Memory size for experience replay 
@@ -28,9 +28,12 @@ z = np.tile(yy, (1, 999))
 
 
 def positionGeneration(d): # d =  diameter of the robot
-    # Randomly generating theta (the angle between local reference frame of the robot and the global frame) 
-    # and the left, right sensor positions
-    theta = np.random.randint(0, 360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
+    # Randomly generating theta (the angle between local reference frame of the robot and the global frame) and the left, right sensor positions
+    theta = 0
+    while np.abs(theta) < 10:
+        theta = np.random.randint(0, 360) # Theta is 0 when it faces the direction at which the maximum intensity is. 
+    
+    #theta = 90
     x_l = 500
     y_l = 500
     x_r = x_l + math.cos((math.pi/180) * (90-theta)) * d
@@ -42,8 +45,8 @@ def zvalue(position, z):
     # Finding the corresponding z value (light intensity) for the given position values
     z_l = z[int(position[0]), int(position[2])]
     z_r = z[int(position[1]), int(position[3])]
-
-    return np.array([z_l, z_r])
+    z_diff = z_l - z_r
+    return z_diff
 
 def step(position, action):
     # taking action from the current state (current position)
@@ -69,8 +72,8 @@ def step(position, action):
 
 
 def rewardDone(state, position):
-    if (abs(state[0] - state[1]) < 5 and position[2] > position[3]):
-        reward = 0
+    if (abs(state) <= 2 and position[2] > position[3]):
+        reward = 1
         done = True
     else:
         reward = -1
@@ -131,10 +134,12 @@ def bot_play(mainDQN):
             print("Total score: {}".format((reward_sum)))
             break
 def main():
-    max_episodes = 500
+    max_episodes = 300
     rList = []
-    dis = 0.3
+    lossList = []
+    dis = 0.9
     replay_buffer = deque()
+    train_buffer = deque()
 
     with tf.Session() as sess:
         mainDQN = dqn.DQN(sess, input_size, output_size, name="main")
@@ -147,12 +152,14 @@ def main():
         sess.run(copy_ops)
 
         for episode in range(max_episodes):
+            # Initialization
             e = 1. / ((episode / 10) + 1)
             done = False
             step_count = 0
             position, initial_angle_diff = positionGeneration(d)
             state = zvalue(position, z)
             while not done:
+                # Choose an action (e-greedy policy/ off-policy)
                 if np.random.rand(1) < e:
                     action = np.random.choice(action_space)
                 else:
@@ -160,21 +167,27 @@ def main():
                     action = np.argmax(mainDQN.predict(state))
 
                 # state update
-
                 next_position = step(position, action)
                 next_state = zvalue(next_position, z)
                 reward, done = rewardDone(next_state, next_position)
-                #print("current position: {}, next position: {}".format(position, next_position))
+                # Putting the new data into buffer
                 replay_buffer.append((state, action, reward, next_state, done))
                 if len(replay_buffer) == REPLAY_MEMORY:
                     replay_buffer.popleft()
-
                 position = next_position
                 state = next_state
                 step_count += 1
-                print("step: {}, action: {}, state: {}, position: {} ".format(step_count, action, state, position))
-                #if step_count > 30000:
-                #    break
+                print("Episodes: {}, step: {}, action: {}, state: {}".format(episode, step_count, action, state))
+                if (reward >= 0):
+                    last_data = replay_buffer[-2]
+                    current_data = replay_buffer[-1]
+                    
+                    # train_buffer.append(last_data)
+                    train_buffer.append(current_data)
+                    print("Episodes: {}, step: {}, action: {}, state: {}".format(episode, step_count-1, last_data[1], last_data[0]))
+                    print("Episodes: {}, step: {}, action: {}, state: {}, position: {}, reward: {}".format(episode, step_count, current_data[1], current_data[0], position, reward))
+
+            # Store the performance index into a list
             if (initial_angle_diff > 1 and initial_angle_diff < 359):
                 if (initial_angle_diff < 180):  
                     rList.append(step_count/initial_angle_diff)
@@ -182,20 +195,29 @@ def main():
                     rList.append(step_count/( 360 - initial_angle_diff))
             else:
                 rList.append(0)
-
+            # Print out the results every episodes
             if initial_angle_diff <= 180 :
                 print("Episodes: {}, steps: {}, initial angle difference: {}".format(episode, step_count, initial_angle_diff))
             else:
                 print("Episodes: {}, steps: {}, initial angle difference: {}".format(episode, step_count, - (360 - initial_angle_diff)))
             
-            
-            if episode % 5 == 1:
-                    for _ in range(50):
-                        minibatch = random.sample(replay_buffer, 5)
-                        loss, _ = replay_train(mainDQN, targetDQN, minibatch, dis)
-                    print("Loss: ", loss)
-    
+            # Update the target network every 5 episodes. 
+            # if episode == 1:
+            #     for _ in range(5):
+            #         minibatch = random.sample(train_buffer, 1)
+            #         loss, _ = replay_train(mainDQN, targetDQN, minibatch, dis)
+            #     lossList.append(loss)
+            #     print("Loss: ", loss)
+            if (episode > 1 and episode % 5 == 1):
+                for _ in range(50):
+                    minibatch = random.sample(train_buffer, 2)
+                    loss, _ = replay_train(mainDQN, targetDQN, minibatch, dis)
+                lossList.append(loss)
+                print("Loss: ", loss)
+    plt.figure(1)
     plt.bar(range(len(rList)), rList, color="blue")
+    plt.figure(2)
+    plt.bar(range(len(lossList)), lossList, color="black")
     plt.show()
         
 
